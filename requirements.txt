@@ -1,9 +1,9 @@
 streamlit
 pandas
-numpy
+numpy<2.2
 yfinance
 plotly
-tensorflow
+tensorflow==2.19.1
 scikit-learn
 joblib
 tavily-python

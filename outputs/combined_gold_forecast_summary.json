@@ -1,0 +1,17 @@
+{
+    "Current Gold Price": 4677.6,
+    "Predicted 7-Day Future Gold Price": 4693.35,
+    "Expected Change": 15.75,
+    "Expected Change (%)": 0.3367,
+    "Model Risk Signal": "Neutral",
+    "News Signal": "bearish",
+    "News Sentiment Score": -0.5,
+    "Final Combined Signal": "Cautious Neutral / News Bearish",
+    "Key News Drivers": [
+        "inflation",
+        "interest_rates",
+        "dollar_strength"
+    ],
+    "News Summary": "Gold prices are expected to remain under pressure due to persistent inflation, hawkish Fed expectations, and a strong dollar. While safe-haven demand and geopolitical risks may support gold, the overall market sentiment remains bearish, with a high level of market uncertainty.",
+    "Final Recommendation": "Model forecast is neutral, but news sentiment is bearish. Avoid aggressive bullish exposure and monitor inflation, Fed, and dollar signals."
+}

@@ -1,0 +1,20 @@
+{
+    "overall_news_signal": "bearish",
+    "gold_sentiment_score": -0.5,
+    "inflation_risk_score": 0.8,
+    "interest_rate_risk_score": 0.4,
+    "dollar_pressure_score": -0.2,
+    "safe_haven_demand_score": 0.6,
+    "geopolitical_risk_score": 0.7,
+    "market_uncertainty_score": 0.9,
+    "short_term_gold_impact": "negative",
+    "confidence_score": 0.7,
+    "key_drivers": [
+        "inflation",
+        "interest_rates",
+        "dollar_strength"
+    ],
+    "summary": "Gold prices are expected to remain under pressure due to persistent inflation, hawkish Fed expectations, and a strong dollar. While safe-haven demand and geopolitical risks may support gold, the overall market sentiment remains bearish, with a high level of market uncertainty.",
+    "analysis_timestamp": "2026-05-22 14:32:21",
+    "news_items_analyzed": 10
+}

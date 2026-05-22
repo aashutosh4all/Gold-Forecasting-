@@ -5,7 +5,7 @@
 
 import json
 import joblib
-
+import time
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -285,21 +285,81 @@ except Exception as e:
 # Data Functions
 # =========================
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_gold_data():
-    gold = yf.download(
-        "GC=F",
-        period="5y",
-        interval="1d",
-        auto_adjust=False,
-        progress=False
+    """
+    Fetches gold futures data from Yahoo Finance.
+    Includes multiple fallback attempts because yfinance can sometimes
+    return an empty dataframe on cloud deployments.
+    """
+
+    required_cols = ["Open", "High", "Low", "Close", "Volume"]
+    last_error = None
+
+    download_attempts = [
+        {"period": "5y", "interval": "1d"},
+        {"period": "2y", "interval": "1d"},
+        {"start": "2021-01-01", "interval": "1d"},
+    ]
+
+    for params in download_attempts:
+        for _ in range(2):
+            try:
+                gold = yf.download(
+                    "GC=F",
+                    auto_adjust=False,
+                    progress=False,
+                    threads=False,
+                    **params
+                )
+
+                if gold is not None and not gold.empty:
+                    if isinstance(gold.columns, pd.MultiIndex):
+                        gold.columns = gold.columns.get_level_values(0)
+
+                    if all(col in gold.columns for col in required_cols):
+                        gold = gold[required_cols].dropna()
+
+                        if len(gold) >= 100:
+                            return gold
+
+                time.sleep(1)
+
+            except Exception as e:
+                last_error = e
+                time.sleep(1)
+
+    # Final fallback using Ticker history
+    try:
+        ticker = yf.Ticker("GC=F")
+        gold = ticker.history(
+            period="5y",
+            interval="1d",
+            auto_adjust=False
+        )
+
+        if gold is not None and not gold.empty:
+            if isinstance(gold.columns, pd.MultiIndex):
+                gold.columns = gold.columns.get_level_values(0)
+
+            if all(col in gold.columns for col in required_cols):
+                gold = gold[required_cols].dropna()
+
+                if len(gold) >= 100:
+                    return gold
+
+    except Exception as e:
+        last_error = e
+
+    st.error(
+        "Gold price data could not be fetched from Yahoo Finance right now. "
+        "Please refresh the app after a few minutes."
     )
 
-    if isinstance(gold.columns, pd.MultiIndex):
-        gold.columns = gold.columns.get_level_values(0)
+    if last_error is not None:
+        st.caption(f"Last data-fetch error: {last_error}")
 
-    gold = gold[["Open", "High", "Low", "Close", "Volume"]]
-    return gold
+    st.stop()
 
 
 def prepare_gold_features(gold_df):
@@ -589,7 +649,19 @@ def combine_model_and_news_signal(prediction_summary, news_context):
 # =========================
 
 gold_raw = fetch_gold_data()
+
+if gold_raw is None or gold_raw.empty:
+    st.error("No gold price data was returned. Please refresh the app.")
+    st.stop()
+
 gold_features = prepare_gold_features(gold_raw)
+
+if gold_features is None or gold_features.empty or len(gold_features) < time_steps:
+    st.error(
+        "Not enough gold price data available to create the LSTM input sequence. "
+        "Please refresh the app after a few minutes."
+    )
+    st.stop()
 
 
 # =========================

@@ -360,6 +360,47 @@ def fetch_gold_data():
         st.caption(f"Last data-fetch error: {last_error}")
 
     st.stop()
+    
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_gold_intraday_quote():
+    """
+    Fetch latest available intraday gold futures quote.
+    Used only for dashboard market snapshot, not for LSTM prediction.
+    """
+
+    attempts = [
+        {"period": "5d", "interval": "1h"},
+        {"period": "1d", "interval": "15m"},
+        {"period": "5d", "interval": "30m"},
+    ]
+
+    for params in attempts:
+        try:
+            intraday = yf.download(
+                "GC=F",
+                auto_adjust=False,
+                progress=False,
+                threads=False,
+                **params
+            )
+
+            if intraday is not None and not intraday.empty:
+                if isinstance(intraday.columns, pd.MultiIndex):
+                    intraday.columns = intraday.columns.get_level_values(0)
+
+                if "Close" in intraday.columns:
+                    intraday = intraday.dropna(subset=["Close"])
+
+                    if not intraday.empty:
+                        return {
+                            "price": float(intraday["Close"].iloc[-1]),
+                            "timestamp": intraday.index[-1]
+                        }
+
+        except Exception:
+            time.sleep(1)
+
+    return None
 
 
 def prepare_gold_features(gold_df):
@@ -654,6 +695,8 @@ if gold_raw is None or gold_raw.empty:
     st.error("No gold price data was returned. Please refresh the app.")
     st.stop()
 
+gold_intraday_quote = fetch_gold_intraday_quote()
+
 gold_features = prepare_gold_features(gold_raw)
 
 if gold_features is None or gold_features.empty or len(gold_features) < time_steps:
@@ -670,33 +713,50 @@ if gold_features is None or gold_features.empty or len(gold_features) < time_ste
 
 section_heading("Market Snapshot")
 
-latest_price = float(gold_raw["Close"].iloc[-1])
-previous_price = float(gold_raw["Close"].iloc[-2])
+latest_daily_close = float(gold_raw["Close"].iloc[-1])
+previous_daily_close = float(gold_raw["Close"].iloc[-2])
+latest_daily_date = gold_raw.index[-1].date()
 
-daily_change = latest_price - previous_price
-daily_change_pct = (daily_change / previous_price) * 100
+if gold_intraday_quote is not None:
+    display_price = gold_intraday_quote["price"]
+    raw_timestamp = gold_intraday_quote["timestamp"]
+
+    try:
+        if raw_timestamp.tzinfo is not None:
+            display_timestamp = raw_timestamp.tz_convert("Asia/Kolkata")
+        else:
+            display_timestamp = raw_timestamp
+    except Exception:
+        display_timestamp = raw_timestamp
+
+    market_time_text = display_timestamp.strftime("%Y-%m-%d %H:%M")
+else:
+    display_price = latest_daily_close
+    market_time_text = str(latest_daily_date)
+
+price_change = display_price - previous_daily_close
+price_change_pct = (price_change / previous_daily_close) * 100
 
 col1, col2, col3 = st.columns(3, gap="large")
 
 with col1:
     st.metric(
         "Current Gold Price",
-        f"${latest_price:,.2f}",
-        f"{daily_change_pct:.2f}% today"
+        f"${display_price:,.2f}",
+        f"{price_change_pct:.2f}% vs previous close"
     )
 
 with col2:
     st.metric(
-        "Latest Trading Date",
-        str(gold_raw.index[-1].date())
+        "Market Data Time",
+        market_time_text
     )
 
 with col3:
     st.metric(
-        "Model Status",
-        "Ready"
+        "Model Daily Candle",
+        str(latest_daily_date)
     )
-
 
 # =========================
 # Gold Price Trend
@@ -763,7 +823,7 @@ if "prediction_summary" in st.session_state:
 
     with col1:
         st.metric(
-            "Current Gold Price",
+            "Model input close",
             f"${prediction_summary['Current Gold Price']:,.2f}"
         )
 
